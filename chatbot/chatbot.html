@@ -1,0 +1,1468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Chatbot</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .chatbot-container {
+            width: 90%;
+            max-width: 800px;
+            height: 80vh;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .message {
+            max-width: 70%;
+            padding: 15px 20px;
+            border-radius: 20px;
+            word-wrap: break-word;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        .user-message {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 5px;
+        }
+
+        .bot-message {
+            background: #f1f3f4;
+            color: #333;
+            align-self: flex-start;
+            border-bottom-left-radius: 5px;
+        }
+
+        .chat-input-container {
+            padding: 20px;
+            background: #f8f9fa;
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e9ecef;
+            border-radius: 25px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .chat-input:focus {
+            border-color: #667eea;
+        }
+
+        .send-button {
+            padding: 15px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .send-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .send-button:active {
+            transform: translateY(0);
+        }
+
+        .emergency-alert {
+            background: #ff4757;
+            color: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .drug-info {
+            background: #e8f5e8;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="chatbot-container">
+        <div class="chat-header">
+            🏥 Medical Assistant Chatbot
+        </div>
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot-message">
+                Hello! I'm your medical assistant. I can help you with:
+                <br>• Symptom analysis
+                <br>• Drug information
+                <br>• General health questions
+                <br>• Emergency guidance
+                <br><br>How can I help you today?
+            </div>
+        </div>
+        <div class="chat-input-container">
+            <input type="text" class="chat-input" id="chatInput" placeholder="Ask me about your symptoms, medications, or health concerns..." />
+            <button class="send-button" id="sendButton">Send</button>
+        </div>
+    </div>
+
+    <script>
+        // Medical knowledge base
+        const medicalKnowledge = {
+            symptoms: {
+                'chest pain': {
+                    info: 'Chest pain can indicate serious conditions like heart attack, angina, or pulmonary embolism.',
+                    causes: ['Heart attack', 'Angina', 'Pulmonary embolism', 'Muscle strain', 'Acid reflux', 'Anxiety'],
+                    recommendation: 'Seek immediate medical attention if chest pain is severe, crushing, or accompanied by shortness of breath.',
+                    severity: 'high',
+                    medications: ['Aspirin (if heart attack suspected)', 'Nitroglycerin (if prescribed)', 'Antacids (if acid reflux)']
+                },
+                'shortness of breath': {
+                    info: 'Shortness of breath may indicate asthma, pneumonia, heart failure, or anxiety.',
+                    causes: ['Asthma', 'Pneumonia', 'Heart failure', 'Anxiety', 'COPD', 'Allergic reactions'],
+                    recommendation: 'Consult a healthcare provider if breathing difficulties persist or worsen.',
+                    severity: 'high',
+                    medications: ['Bronchodilators', 'Inhaled corticosteroids', 'Emergency inhalers']
+                },
+                'fever': {
+                    info: 'Fever is often a sign of infection and indicates the body is fighting illness.',
+                    causes: ['Viral infections', 'Bacterial infections', 'Inflammatory conditions', 'Heat exhaustion', 'Medications'],
+                    recommendation: 'If temperature is above 103°F (39.4°C) or persists for more than 3 days, see a doctor.',
+                    severity: 'medium',
+                    medications: ['Paracetamol', 'Ibuprofen', 'Aspirin (adults only)']
+                },
+                'headache': {
+                    info: 'Headaches can be caused by stress, dehydration, migraines, or more serious conditions.',
+                    causes: ['Stress', 'Dehydration', 'Migraines', 'Tension', 'Sinus problems', 'Eye strain', 'High blood pressure'],
+                    recommendation: 'Persistent or severe headaches need evaluation. Rest, hydration, and pain relievers may help.',
+                    severity: 'medium',
+                    medications: ['Paracetamol', 'Ibuprofen', 'Aspirin', 'Caffeine (for migraines)']
+                },
+                'throat pain': {
+                    info: 'Throat pain is commonly caused by viral infections, strep throat, or acid reflux.',
+                    causes: ['Viral infections', 'Strep throat', 'Acid reflux', 'Allergies', 'Smoking', 'Dry air'],
+                    recommendation: 'Rest, fluids, and throat lozenges may help. See a doctor if pain persists or worsens.',
+                    severity: 'low',
+                    medications: ['Throat lozenges', 'Paracetamol', 'Ibuprofen', 'Antacids (if acid reflux)']
+                },
+                'nausea': {
+                    info: 'Nausea can be caused by various conditions including food poisoning, pregnancy, medications, or gastrointestinal issues.',
+                    causes: ['Food poisoning', 'Pregnancy', 'Medications', 'Motion sickness', 'Gastroenteritis', 'Migraines'],
+                    recommendation: 'Rest, clear fluids, and avoiding solid foods may help. Seek medical attention if severe or persistent.',
+                    severity: 'medium',
+                    medications: ['Antiemetics', 'Ginger supplements', 'Peppermint tea', 'Clear fluids']
+                },
+                'dizziness': {
+                    info: 'Dizziness may indicate low blood pressure, dehydration, inner ear problems, or neurological issues.',
+                    causes: ['Low blood pressure', 'Dehydration', 'Inner ear problems', 'Neurological issues', 'Medications', 'Anxiety'],
+                    recommendation: 'Sit or lie down, stay hydrated. Consult a doctor if dizziness is severe or frequent.',
+                    severity: 'medium',
+                    medications: ['Antihistamines (if motion sickness)', 'Fluids with electrolytes', 'Ginger supplements']
+                },
+                'fatigue': {
+                    info: 'Fatigue can be caused by sleep disorders, depression, anemia, thyroid problems, or chronic conditions.',
+                    causes: ['Sleep disorders', 'Depression', 'Anemia', 'Thyroid problems', 'Chronic fatigue syndrome', 'Medications'],
+                    recommendation: 'Ensure adequate sleep, balanced diet, and regular exercise. See a doctor if fatigue is persistent.',
+                    severity: 'medium',
+                    medications: ['Iron supplements (if anemic)', 'B-complex vitamins', 'Caffeine (temporary relief)']
+                },
+                'abdominal pain': {
+                    info: 'Abdominal pain can range from mild digestive issues to serious conditions like appendicitis or gallstones.',
+                    causes: ['Digestive issues', 'Appendicitis', 'Gallstones', 'Food poisoning', 'Irritable bowel syndrome', 'Ulcers'],
+                    recommendation: 'Rest, clear fluids, and avoid solid foods. Seek immediate medical attention if pain is severe.',
+                    severity: 'high',
+                    medications: ['Antacids', 'Simethicone (for gas)', 'Peppermint tea', 'Clear fluids']
+                }
+            },
+            everydayDiseases: {
+                'cough': {
+                    info: 'Cough is a reflex action to clear the airways of mucus, irritants, or foreign particles.',
+                    causes: ['Common cold', 'Flu', 'Allergies', 'Asthma', 'Smoking', 'Air pollution', 'Post-nasal drip'],
+                    recommendation: 'Stay hydrated, use cough drops, avoid irritants. See a doctor if cough persists for more than 3 weeks or is accompanied by blood.',
+                    severity: 'low',
+                    medications: ['Cough suppressants', 'Expectorants', 'Honey', 'Throat lozenges', 'Steam inhalation']
+                },
+                'cold': {
+                    info: 'Common cold is a viral infection of the upper respiratory tract causing mild symptoms.',
+                    causes: ['Rhinoviruses', 'Coronaviruses', 'Adenoviruses', 'Respiratory syncytial virus', 'Weakened immune system'],
+                    recommendation: 'Rest, stay hydrated, use saline nasal sprays. Symptoms usually resolve in 7-10 days. See a doctor if symptoms worsen.',
+                    severity: 'low',
+                    medications: ['Paracetamol', 'Ibuprofen', 'Decongestants', 'Antihistamines', 'Vitamin C', 'Zinc supplements']
+                },
+                'fever': {
+                    info: 'Fever is an elevated body temperature, usually indicating the body is fighting an infection.',
+                    causes: ['Viral infections', 'Bacterial infections', 'Inflammatory conditions', 'Heat exhaustion', 'Medications', 'Vaccinations'],
+                    recommendation: 'Rest, stay hydrated, use fever-reducing medications. Seek medical attention if fever is above 103°F or persists for more than 3 days.',
+                    severity: 'medium',
+                    medications: ['Paracetamol', 'Ibuprofen', 'Aspirin (adults only)', 'Cool compresses', 'Plenty of fluids']
+                },
+                'sore throat': {
+                    info: 'Sore throat is pain, scratchiness, or irritation of the throat that often worsens when swallowing.',
+                    causes: ['Viral infections', 'Bacterial infections (strep throat)', 'Allergies', 'Dry air', 'Smoking', 'Acid reflux'],
+                    recommendation: 'Gargle with warm salt water, stay hydrated, rest your voice. See a doctor if symptoms persist or worsen.',
+                    severity: 'low',
+                    medications: ['Throat lozenges', 'Paracetamol', 'Ibuprofen', 'Antibiotics (if bacterial)', 'Warm salt water gargle']
+                },
+                'headache': {
+                    info: 'Headache is pain or discomfort in the head or neck area, ranging from mild to severe.',
+                    causes: ['Stress', 'Tension', 'Dehydration', 'Migraines', 'Sinus problems', 'Eye strain', 'Caffeine withdrawal'],
+                    recommendation: 'Rest in a dark, quiet room, apply cold compress, stay hydrated. See a doctor for severe or persistent headaches.',
+                    severity: 'medium',
+                    medications: ['Paracetamol', 'Ibuprofen', 'Aspirin', 'Caffeine (for migraines)', 'Magnesium supplements']
+                },
+                'stomach pain': {
+                    info: 'Stomach pain is discomfort in the abdominal area, ranging from mild cramping to severe pain.',
+                    causes: ['Indigestion', 'Gas', 'Food poisoning', 'Irritable bowel syndrome', 'Appendicitis', 'Gastritis', 'Constipation'],
+                    recommendation: 'Avoid solid foods initially, drink clear fluids, rest. Seek immediate medical attention if pain is severe or persistent.',
+                    severity: 'medium',
+                    medications: ['Antacids', 'Simethicone (for gas)', 'Peppermint tea', 'Probiotics', 'Clear fluids']
+                },
+                'back pain': {
+                    info: 'Back pain is discomfort in the spine area, often caused by muscle strain or poor posture.',
+                    causes: ['Muscle strain', 'Poor posture', 'Herniated disc', 'Arthritis', 'Obesity', 'Stress', 'Inactivity'],
+                    recommendation: 'Rest, apply ice/heat, gentle stretching, maintain good posture. See a doctor if pain persists or radiates to legs.',
+                    severity: 'medium',
+                    medications: ['Paracetamol', 'Ibuprofen', 'Topical pain relievers', 'Muscle relaxants', 'Heat/cold therapy']
+                },
+                'chest pain': {
+                    info: 'Chest pain can range from mild discomfort to severe pain, potentially indicating serious conditions.',
+                    causes: ['Heart attack', 'Angina', 'Muscle strain', 'Acid reflux', 'Anxiety', 'Pneumonia', 'Costochondritis'],
+                    recommendation: 'Seek immediate medical attention if chest pain is severe, crushing, or accompanied by shortness of breath.',
+                    severity: 'high',
+                    medications: ['Aspirin (if heart attack suspected)', 'Antacids (if acid reflux)', 'Nitroglycerin (if prescribed)']
+                },
+                'diarrhea': {
+                    info: 'Diarrhea is frequent, loose, or watery bowel movements that can lead to dehydration.',
+                    causes: ['Viral infections', 'Bacterial infections', 'Food poisoning', 'Medications', 'Lactose intolerance', 'Irritable bowel syndrome'],
+                    recommendation: 'Stay hydrated with oral rehydration solutions, avoid dairy and fatty foods. See a doctor if diarrhea persists for more than 2 days.',
+                    severity: 'medium',
+                    medications: ['Oral rehydration salts (ORS)', 'Loperamide (adults only)', 'Probiotics', 'Clear fluids', 'Bland foods']
+                },
+                'skin rash': {
+                    info: 'Skin rash is a change in skin color, texture, or appearance, often accompanied by itching or irritation.',
+                    causes: ['Allergic reactions', 'Contact dermatitis', 'Eczema', 'Psoriasis', 'Infections', 'Medications', 'Heat rash'],
+                    recommendation: 'Avoid scratching, use gentle skincare products, keep skin moisturized. See a doctor if rash spreads or worsens.',
+                    severity: 'low',
+                    medications: ['Antihistamines', 'Topical corticosteroids', 'Calamine lotion', 'Moisturizers', 'Cool compresses']
+                },
+                'allergy': {
+                    info: 'Allergy is an immune system reaction to substances that are usually harmless to most people.',
+                    causes: ['Pollen', 'Dust mites', 'Pet dander', 'Foods', 'Medications', 'Insect stings', 'Latex', 'Mold'],
+                    recommendation: 'Avoid known allergens, use air purifiers, keep windows closed during high pollen seasons. See an allergist for severe reactions.',
+                    severity: 'medium',
+                    medications: ['Antihistamines', 'Nasal corticosteroids', 'Decongestants', 'Epinephrine (for severe reactions)', 'Allergy shots']
+                }
+            },
+            viralDiseases: {
+                'influenza': {
+                    info: 'Influenza (flu) is a contagious respiratory illness caused by influenza viruses that infect the nose, throat, and sometimes the lungs.',
+                    causes: ['Influenza A, B, or C viruses', 'Droplet transmission from coughing/sneezing', 'Contact with contaminated surfaces', 'Close contact with infected individuals'],
+                    recommendation: 'Rest, stay hydrated, use fever reducers. Seek medical attention if symptoms worsen, difficulty breathing, or high fever persists.',
+                    severity: 'medium',
+                    medications: ['Oseltamivir (Tamiflu)', 'Zanamivir (Relenza)', 'Paracetamol', 'Ibuprofen', 'Antiviral medications (if prescribed early)']
+                },
+                'common cold': {
+                    info: 'Common cold is a viral infection of the upper respiratory tract causing mild symptoms like runny nose, sneezing, and sore throat.',
+                    causes: ['Rhinoviruses (most common)', 'Coronaviruses', 'Adenoviruses', 'Respiratory syncytial virus', 'Droplet transmission', 'Contact with contaminated surfaces'],
+                    recommendation: 'Rest, stay hydrated, use saline nasal sprays, throat lozenges. Symptoms usually resolve in 7-10 days. See doctor if symptoms worsen.',
+                    severity: 'low',
+                    medications: ['Paracetamol', 'Ibuprofen', 'Decongestants', 'Antihistamines', 'Vitamin C', 'Zinc supplements', 'Honey']
+                },
+                'covid-19': {
+                    info: 'COVID-19 is a respiratory illness caused by the SARS-CoV-2 coronavirus, ranging from mild to severe symptoms.',
+                    causes: ['SARS-CoV-2 coronavirus', 'Droplet transmission', 'Aerosol transmission', 'Contact with contaminated surfaces', 'Close contact with infected individuals'],
+                    recommendation: 'Isolate if infected, rest, stay hydrated, monitor symptoms. Seek immediate medical attention for severe symptoms like difficulty breathing.',
+                    severity: 'high',
+                    medications: ['Paxlovid (nirmatrelvir/ritonavir)', 'Molnupiravir', 'Remdesivir', 'Paracetamol', 'Ibuprofen', 'Monoclonal antibodies']
+                },
+                'chickenpox': {
+                    info: 'Chickenpox is a highly contagious viral infection causing an itchy, blister-like rash and flu-like symptoms.',
+                    causes: ['Varicella-zoster virus', 'Direct contact with rash', 'Droplet transmission from coughing/sneezing', 'Contact with contaminated objects'],
+                    recommendation: 'Stay home until all blisters crust over, avoid scratching, use calamine lotion. Seek medical attention for severe symptoms or complications.',
+                    severity: 'medium',
+                    medications: ['Acyclovir (for severe cases)', 'Calamine lotion', 'Antihistamines', 'Paracetamol', 'Varicella vaccine (prevention)']
+                },
+                'measles': {
+                    info: 'Measles is a highly contagious viral infection causing fever, cough, runny nose, and a characteristic red rash.',
+                    causes: ['Measles virus (Morbillivirus)', 'Droplet transmission', 'Direct contact with infected person', 'Airborne transmission', 'Unvaccinated individuals'],
+                    recommendation: 'Isolate immediately, rest, stay hydrated. Seek medical attention as measles can cause serious complications, especially in children.',
+                    severity: 'high',
+                    medications: ['Vitamin A supplements', 'Paracetamol', 'Ibuprofen', 'MMR vaccine (prevention)', 'Immune globulin (post-exposure)']
+                },
+                'hepatitis a': {
+                    info: 'Hepatitis A is a viral liver infection that causes inflammation and can lead to liver damage, spread through contaminated food or water.',
+                    causes: ['Hepatitis A virus (HAV)', 'Contaminated food or water', 'Close contact with infected person', 'Poor sanitation', 'Travel to endemic areas'],
+                    recommendation: 'Rest, avoid alcohol, eat small frequent meals, stay hydrated. Most people recover completely. Seek medical attention for severe symptoms.',
+                    severity: 'medium',
+                    medications: ['Hepatitis A vaccine (prevention)', 'Immune globulin (post-exposure)', 'Supportive care', 'Avoid hepatotoxic medications']
+                },
+                'hepatitis b': {
+                    info: 'Hepatitis B is a serious liver infection caused by the hepatitis B virus that can become chronic and lead to liver damage or cancer.',
+                    causes: ['Hepatitis B virus (HBV)', 'Blood contact', 'Sexual contact', 'Mother-to-child transmission', 'Sharing needles', 'Unprotected sex'],
+                    recommendation: 'Rest, avoid alcohol, regular monitoring. Chronic infection requires long-term medical management. Seek immediate medical attention.',
+                    severity: 'high',
+                    medications: ['Hepatitis B vaccine (prevention)', 'Antiviral medications (tenofovir, entecavir)', 'Immune globulin (post-exposure)', 'Regular liver monitoring']
+                },
+                'dengue fever': {
+                    info: 'Dengue fever is a mosquito-borne viral infection causing high fever, severe headache, and muscle/joint pain.',
+                    causes: ['Dengue virus (DENV)', 'Aedes mosquito bites', 'Travel to tropical/subtropical areas', 'Urban environments with standing water', 'No direct human-to-human transmission'],
+                    recommendation: 'Rest, stay hydrated, manage fever with acetaminophen (avoid aspirin/ibuprofen). Seek immediate medical attention for warning signs.',
+                    severity: 'high',
+                    medications: ['Acetaminophen (avoid aspirin/ibuprofen)', 'Oral rehydration solutions', 'Dengue vaccine (prevention)', 'Supportive care', 'Blood transfusion (severe cases)']
+                },
+                'hiv aids': {
+                    info: 'HIV/AIDS is a chronic, potentially life-threatening condition caused by the human immunodeficiency virus that attacks the immune system.',
+                    causes: ['Human immunodeficiency virus (HIV)', 'Unprotected sexual contact', 'Blood contact', 'Sharing needles', 'Mother-to-child transmission', 'Breastfeeding'],
+                    recommendation: 'Immediate medical attention required. Early diagnosis and treatment crucial. Practice safe sex, avoid sharing needles. Regular medical monitoring essential.',
+                    severity: 'high',
+                    medications: ['Antiretroviral therapy (ART)', 'PrEP (pre-exposure prophylaxis)', 'PEP (post-exposure prophylaxis)', 'Prophylactic antibiotics', 'Regular CD4 monitoring']
+                }
+            },
+            bacterialDiseases: {
+                'tuberculosis': {
+                    info: 'Tuberculosis (TB) is a bacterial infection that primarily affects the lungs but can affect other parts of the body.',
+                    causes: ['Mycobacterium tuberculosis bacteria', 'Airborne transmission from coughing/sneezing', 'Close contact with infected individuals', 'Weakened immune system', 'HIV infection', 'Malnutrition'],
+                    recommendation: 'Complete the full course of prescribed antibiotics (6+ months), maintain good nutrition, follow infection control measures. Regular medical monitoring essential.',
+                    severity: 'high',
+                    medications: ['Isoniazid', 'Rifampin', 'Ethambutol', 'Pyrazinamide', 'Streptomycin', 'BCG vaccine (prevention)']
+                },
+                'pneumonia': {
+                    info: 'Bacterial pneumonia is an infection of the lungs causing inflammation and fluid buildup in air sacs.',
+                    causes: ['Streptococcus pneumoniae (most common)', 'Haemophilus influenzae', 'Staphylococcus aureus', 'Klebsiella pneumoniae', 'Aspiration', 'Weakened immune system'],
+                    recommendation: 'Rest, stay hydrated, take prescribed antibiotics, monitor symptoms. Seek immediate medical attention if breathing becomes difficult.',
+                    severity: 'high',
+                    medications: ['Amoxicillin', 'Azithromycin', 'Levofloxacin', 'Ceftriaxone', 'Vancomycin (severe cases)', 'Pneumococcal vaccine (prevention)']
+                },
+                'strep throat': {
+                    info: 'Strep throat is a bacterial infection of the throat and tonsils caused by group A Streptococcus bacteria.',
+                    causes: ['Group A Streptococcus bacteria', 'Droplet transmission from coughing/sneezing', 'Direct contact with infected person', 'Sharing utensils or drinks', 'Close contact'],
+                    recommendation: 'Complete full course of antibiotics, rest, stay hydrated, gargle with warm salt water. See doctor for proper diagnosis and treatment.',
+                    severity: 'medium',
+                    medications: ['Penicillin', 'Amoxicillin', 'Azithromycin', 'Cephalexin', 'Ibuprofen', 'Throat lozenges']
+                },
+                'uti': {
+                    info: 'Urinary Tract Infection (UTI) is a bacterial infection of any part of the urinary system, most commonly affecting the bladder.',
+                    causes: ['Escherichia coli (E. coli) bacteria', 'Sexual activity', 'Poor hygiene', 'Holding urine too long', 'Diabetes', 'Menopause', 'Catheter use'],
+                    recommendation: 'Drink plenty of water, urinate frequently, avoid irritants. Seek medical attention for proper diagnosis and antibiotic treatment.',
+                    severity: 'medium',
+                    medications: ['Trimethoprim/sulfamethoxazole', 'Nitrofurantoin', 'Ciprofloxacin', 'Levofloxacin', 'Cranberry supplements', 'Probiotics']
+                },
+                'cholera': {
+                    info: 'Cholera is a severe diarrheal disease caused by the bacterium Vibrio cholerae, leading to rapid dehydration.',
+                    causes: ['Vibrio cholerae bacteria', 'Contaminated water', 'Contaminated food', 'Poor sanitation', 'Travel to endemic areas', 'Natural disasters'],
+                    recommendation: 'Immediate medical attention required. Oral rehydration therapy crucial. Avoid contaminated water/food. Seek emergency care for severe dehydration.',
+                    severity: 'high',
+                    medications: ['Oral rehydration salts (ORS)', 'Intravenous fluids', 'Doxycycline', 'Azithromycin', 'Ciprofloxacin', 'Cholera vaccine (prevention)']
+                },
+                'typhoid fever': {
+                    info: 'Typhoid fever is a bacterial infection caused by Salmonella typhi, causing high fever, weakness, and gastrointestinal symptoms.',
+                    causes: ['Salmonella typhi bacteria', 'Contaminated food or water', 'Poor sanitation', 'Travel to endemic areas', 'Close contact with infected person', 'Carrier state'],
+                    recommendation: 'Rest, stay hydrated, eat bland foods. Seek medical attention for proper diagnosis and antibiotic treatment. Complete full course of antibiotics.',
+                    severity: 'high',
+                    medications: ['Ciprofloxacin', 'Azithromycin', 'Ceftriaxone', 'Chloramphenicol', 'Typhoid vaccine (prevention)', 'Supportive care']
+                },
+                'whooping cough': {
+                    info: 'Whooping cough (pertussis) is a highly contagious respiratory infection causing severe coughing fits and a characteristic "whoop" sound.',
+                    causes: ['Bordetella pertussis bacteria', 'Droplet transmission from coughing/sneezing', 'Close contact with infected person', 'Unvaccinated individuals', 'Waning immunity'],
+                    recommendation: 'Seek medical attention, especially for infants and children. Rest, stay hydrated, avoid irritants. Complete full course of antibiotics.',
+                    severity: 'high',
+                    medications: ['Azithromycin', 'Erythromycin', 'Clarithromycin', 'Trimethoprim/sulfamethoxazole', 'DTaP vaccine (prevention)', 'Tdap vaccine (adults)']
+                },
+                'bacterial meningitis': {
+                    info: 'Bacterial meningitis is a serious infection of the membranes surrounding the brain and spinal cord, requiring immediate medical attention.',
+                    causes: ['Neisseria meningitidis', 'Streptococcus pneumoniae', 'Haemophilus influenzae', 'Listeria monocytogenes', 'Droplet transmission', 'Close contact'],
+                    recommendation: 'Seek immediate emergency medical attention. This is a medical emergency requiring hospitalization and intravenous antibiotics.',
+                    severity: 'high',
+                    medications: ['Ceftriaxone', 'Vancomycin', 'Ampicillin', 'Dexamethasone', 'Meningococcal vaccine (prevention)', 'Pneumococcal vaccine']
+                },
+                'syphilis': {
+                    info: 'Syphilis is a sexually transmitted bacterial infection that progresses through stages and can cause serious complications if untreated.',
+                    causes: ['Treponema pallidum bacteria', 'Sexual contact', 'Mother-to-child transmission', 'Blood contact', 'Unprotected sex', 'Multiple partners'],
+                    recommendation: 'Seek immediate medical attention for testing and treatment. Avoid sexual contact until treated. Notify sexual partners for testing.',
+                    severity: 'high',
+                    medications: ['Penicillin G (preferred treatment)', 'Doxycycline', 'Ceftriaxone', 'Azithromycin', 'Regular follow-up testing', 'Partner treatment']
+                },
+                'gonorrhea': {
+                    info: 'Gonorrhea is a sexually transmitted bacterial infection that can affect the genitals, rectum, and throat.',
+                    causes: ['Neisseria gonorrhoeae bacteria', 'Sexual contact', 'Unprotected sex', 'Multiple partners', 'Mother-to-child transmission', 'Oral, vaginal, or anal sex'],
+                    recommendation: 'Seek immediate medical attention for testing and treatment. Avoid sexual contact until treated. Notify sexual partners for testing.',
+                    severity: 'high',
+                    medications: ['Ceftriaxone', 'Azithromycin', 'Doxycycline', 'Cefixime', 'Regular follow-up testing', 'Partner treatment']
+                }
+            },
+            fungalDiseases: {
+                'athlete foot': {
+                    info: 'Athlete\'s foot (tinea pedis) is a fungal infection of the feet causing itching, burning, and cracked skin.',
+                    causes: ['Trichophyton fungi', 'Dermatophytes', 'Warm, moist environments', 'Public showers/pools', 'Tight shoes', 'Sweaty feet', 'Sharing towels'],
+                    recommendation: 'Keep feet dry, wear breathable shoes, use antifungal treatments. See doctor if symptoms persist or worsen after 2 weeks of treatment.',
+                    severity: 'low',
+                    medications: ['Clotrimazole', 'Miconazole', 'Terbinafine', 'Tolnaftate', 'Ketoconazole', 'Antifungal powders']
+                },
+                'ringworm': {
+                    info: 'Ringworm (tinea corporis) is a fungal skin infection causing circular, red, itchy patches on the body.',
+                    causes: ['Trichophyton fungi', 'Dermatophytes', 'Direct contact with infected person/animal', 'Contaminated objects', 'Warm, humid environments', 'Weakened immune system'],
+                    recommendation: 'Keep skin clean and dry, avoid sharing personal items, use antifungal treatments. See doctor if rash spreads or doesn\'t improve.',
+                    severity: 'low',
+                    medications: ['Clotrimazole', 'Miconazole', 'Terbinafine', 'Ketoconazole', 'Antifungal creams', 'Oral antifungals (severe cases)']
+                },
+                'oral thrush': {
+                    info: 'Oral thrush (oral candidiasis) is a fungal infection of the mouth caused by Candida yeast, causing white patches and discomfort.',
+                    causes: ['Candida albicans yeast', 'Weakened immune system', 'Antibiotic use', 'Diabetes', 'Dentures', 'Dry mouth', 'Steroid inhalers'],
+                    recommendation: 'Maintain good oral hygiene, rinse mouth after inhaler use, see doctor for proper diagnosis and antifungal treatment.',
+                    severity: 'low',
+                    medications: ['Nystatin', 'Fluconazole', 'Clotrimazole lozenges', 'Miconazole gel', 'Amphotericin B', 'Good oral hygiene']
+                },
+                'vaginal yeast infection': {
+                    info: 'Vaginal yeast infection (vulvovaginal candidiasis) is a fungal infection causing itching, burning, and discharge.',
+                    causes: ['Candida albicans yeast', 'Antibiotic use', 'Hormonal changes', 'Diabetes', 'Pregnancy', 'Tight clothing', 'Weakened immune system'],
+                    recommendation: 'Wear cotton underwear, avoid douching, use antifungal treatments. See doctor if symptoms persist or recur frequently.',
+                    severity: 'low',
+                    medications: ['Clotrimazole', 'Miconazole', 'Fluconazole', 'Terconazole', 'Probiotics', 'Boric acid suppositories']
+                },
+                'nail fungus': {
+                    info: 'Nail fungus (onychomycosis) is a fungal infection of the nails causing thickening, discoloration, and brittleness.',
+                    causes: ['Dermatophyte fungi', 'Candida yeast', 'Mold fungi', 'Warm, moist environments', 'Nail trauma', 'Diabetes', 'Poor circulation'],
+                    recommendation: 'Keep nails clean and dry, wear breathable shoes, avoid nail trauma. See doctor for proper diagnosis and treatment.',
+                    severity: 'low',
+                    medications: ['Terbinafine', 'Itraconazole', 'Fluconazole', 'Ciclopirox nail lacquer', 'Amorolfine', 'Surgical nail removal (severe cases)']
+                },
+                'aspergillosis': {
+                    info: 'Aspergillosis is a fungal infection caused by Aspergillus mold, affecting the lungs and potentially other organs.',
+                    causes: ['Aspergillus mold spores', 'Inhaled from environment', 'Weakened immune system', 'Lung disease', 'Asthma', 'Cystic fibrosis', 'Immunosuppressive drugs'],
+                    recommendation: 'Seek immediate medical attention. This can be serious, especially in immunocompromised individuals. Avoid moldy environments.',
+                    severity: 'high',
+                    medications: ['Voriconazole', 'Itraconazole', 'Amphotericin B', 'Caspofungin', 'Micafungin', 'Surgical removal (if localized)']
+                },
+                'histoplasmosis': {
+                    info: 'Histoplasmosis is a fungal infection caused by Histoplasma capsulatum, primarily affecting the lungs.',
+                    causes: ['Histoplasma capsulatum fungus', 'Inhaled from soil with bird/bat droppings', 'Cave exploration', 'Construction work', 'Weakened immune system', 'Endemic areas'],
+                    recommendation: 'Seek medical attention if symptoms develop after exposure. Most cases are mild and resolve without treatment.',
+                    severity: 'medium',
+                    medications: ['Itraconazole', 'Amphotericin B', 'Fluconazole', 'Supportive care', 'Antifungal prophylaxis (high-risk individuals)']
+                },
+                'cryptococcosis': {
+                    info: 'Cryptococcosis is a serious fungal infection caused by Cryptococcus neoformans, primarily affecting the lungs and brain.',
+                    causes: ['Cryptococcus neoformans fungus', 'Inhaled from soil/bird droppings', 'Weakened immune system', 'HIV/AIDS', 'Organ transplant', 'Corticosteroid use'],
+                    recommendation: 'Seek immediate medical attention. This is a serious infection requiring hospitalization and long-term antifungal treatment.',
+                    severity: 'high',
+                    medications: ['Amphotericin B', 'Flucytosine', 'Fluconazole', 'Itraconazole', 'Long-term maintenance therapy', 'Regular monitoring']
+                }
+            },
+            stds: {
+                'hiv aids': {
+                    info: 'HIV/AIDS is a chronic, potentially life-threatening condition caused by the human immunodeficiency virus that attacks the immune system.',
+                    causes: ['Human immunodeficiency virus (HIV)', 'Unprotected sexual contact', 'Blood contact', 'Sharing needles', 'Mother-to-child transmission', 'Breastfeeding'],
+                    recommendation: 'Immediate medical attention required. Early diagnosis and treatment crucial. Practice safe sex, avoid sharing needles. Regular medical monitoring essential.',
+                    severity: 'high',
+                    medications: ['Antiretroviral therapy (ART)', 'PrEP (pre-exposure prophylaxis)', 'PEP (post-exposure prophylaxis)', 'Prophylactic antibiotics', 'Regular CD4 monitoring']
+                },
+                'syphilis': {
+                    info: 'Syphilis is a sexually transmitted bacterial infection that progresses through stages and can cause serious complications if untreated.',
+                    causes: ['Treponema pallidum bacteria', 'Sexual contact', 'Mother-to-child transmission', 'Blood contact', 'Unprotected sex', 'Multiple partners'],
+                    recommendation: 'Seek immediate medical attention for testing and treatment. Avoid sexual contact until treated. Notify sexual partners for testing.',
+                    severity: 'high',
+                    medications: ['Penicillin G (preferred treatment)', 'Doxycycline', 'Ceftriaxone', 'Azithromycin', 'Regular follow-up testing', 'Partner treatment']
+                },
+                'gonorrhea': {
+                    info: 'Gonorrhea is a sexually transmitted bacterial infection that can affect the genitals, rectum, and throat.',
+                    causes: ['Neisseria gonorrhoeae bacteria', 'Sexual contact', 'Unprotected sex', 'Multiple partners', 'Mother-to-child transmission', 'Oral, vaginal, or anal sex'],
+                    recommendation: 'Seek immediate medical attention for testing and treatment. Avoid sexual contact until treated. Notify sexual partners for testing.',
+                    severity: 'high',
+                    medications: ['Ceftriaxone', 'Azithromycin', 'Doxycycline', 'Cefixime', 'Regular follow-up testing', 'Partner treatment']
+                },
+                'chlamydia': {
+                    info: 'Chlamydia is a common sexually transmitted bacterial infection that can cause serious reproductive health problems if untreated.',
+                    causes: ['Chlamydia trachomatis bacteria', 'Sexual contact', 'Unprotected sex', 'Multiple partners', 'Mother-to-child transmission', 'Oral, vaginal, or anal sex'],
+                    recommendation: 'Seek medical attention for testing and treatment. Avoid sexual contact until treated. Notify sexual partners for testing.',
+                    severity: 'medium',
+                    medications: ['Azithromycin', 'Doxycycline', 'Erythromycin', 'Levofloxacin', 'Regular follow-up testing', 'Partner treatment']
+                },
+                'genital herpes': {
+                    info: 'Genital herpes is a sexually transmitted viral infection caused by herpes simplex virus, causing painful sores and blisters.',
+                    causes: ['Herpes simplex virus type 1 or 2', 'Sexual contact', 'Skin-to-skin contact', 'Unprotected sex', 'Mother-to-child transmission', 'Asymptomatic shedding'],
+                    recommendation: 'Seek medical attention for proper diagnosis and treatment. Avoid sexual contact during outbreaks. Use condoms to reduce transmission risk.',
+                    severity: 'medium',
+                    medications: ['Acyclovir', 'Valacyclovir', 'Famciclovir', 'Topical antivirals', 'Pain relievers', 'Sitz baths']
+                },
+                'hpv': {
+                    info: 'Human Papillomavirus (HPV) is a common sexually transmitted virus that can cause genital warts and certain cancers.',
+                    causes: ['Human papillomavirus', 'Sexual contact', 'Skin-to-skin contact', 'Unprotected sex', 'Multiple partners', 'Mother-to-child transmission'],
+                    recommendation: 'Get vaccinated if eligible, practice safe sex, regular Pap smears for women. Most infections clear on their own, but some can cause cancer.',
+                    severity: 'medium',
+                    medications: ['HPV vaccine (prevention)', 'Imiquimod cream', 'Podofilox', 'Trichloroacetic acid', 'Surgical removal', 'Regular screening']
+                },
+                'trichomoniasis': {
+                    info: 'Trichomoniasis is a common sexually transmitted parasitic infection that can cause vaginal discharge and irritation.',
+                    causes: ['Trichomonas vaginalis parasite', 'Sexual contact', 'Unprotected sex', 'Multiple partners', 'Sharing sex toys', 'Mother-to-child transmission'],
+                    recommendation: 'Seek medical attention for testing and treatment. Avoid sexual contact until treated. Notify sexual partners for testing.',
+                    severity: 'low',
+                    medications: ['Metronidazole', 'Tinidazole', 'Regular follow-up testing', 'Partner treatment', 'Avoid alcohol during treatment']
+                },
+                'hepatitis b': {
+                    info: 'Hepatitis B is a serious liver infection caused by the hepatitis B virus that can become chronic and lead to liver damage or cancer.',
+                    causes: ['Hepatitis B virus (HBV)', 'Sexual contact', 'Blood contact', 'Sharing needles', 'Mother-to-child transmission', 'Unprotected sex'],
+                    recommendation: 'Seek immediate medical attention. Chronic infection requires long-term medical management. Practice safe sex and avoid sharing needles.',
+                    severity: 'high',
+                    medications: ['Hepatitis B vaccine (prevention)', 'Antiviral medications (tenofovir, entecavir)', 'Immune globulin (post-exposure)', 'Regular liver monitoring']
+                }
+            },
+            skinDiseases: {
+                'acne': {
+                    info: 'Acne is a common skin condition that occurs when hair follicles become plugged with oil and dead skin cells, causing pimples, blackheads, and whiteheads.',
+                    causes: ['Excess oil production', 'Hair follicles clogged by oil and dead skin cells', 'Bacteria (Propionibacterium acnes)', 'Hormonal changes', 'Certain medications', 'Diet', 'Stress'],
+                    recommendation: 'Wash face twice daily with gentle cleanser, avoid picking at pimples, use non-comedogenic products. See a dermatologist if acne is severe or persistent.',
+                    severity: 'low',
+                    medications: ['Benzoyl peroxide', 'Salicylic acid', 'Retinoids (tretinoin)', 'Antibiotics (topical/oral)', 'Isotretinoin (severe cases)', 'Hormonal therapy']
+                },
+                'eczema': {
+                    info: 'Eczema (atopic dermatitis) is a chronic skin condition that causes inflamed, itchy, and red patches of skin, often appearing in skin folds.',
+                    causes: ['Genetic factors', 'Immune system dysfunction', 'Environmental triggers', 'Allergens', 'Irritants', 'Stress', 'Climate changes', 'Food allergies'],
+                    recommendation: 'Keep skin moisturized, avoid known triggers, use gentle soaps, wear cotton clothing. See a dermatologist for severe or persistent cases.',
+                    severity: 'medium',
+                    medications: ['Topical corticosteroids', 'Calcineurin inhibitors', 'Antihistamines', 'Moisturizers', 'Immunosuppressants', 'Phototherapy']
+                },
+                'psoriasis': {
+                    info: 'Psoriasis is a chronic autoimmune skin condition that causes rapid skin cell turnover, resulting in thick, scaly, red patches on the skin.',
+                    causes: ['Autoimmune disorder', 'Genetic predisposition', 'Immune system dysfunction', 'Stress', 'Infections', 'Certain medications', 'Weather changes', 'Alcohol consumption'],
+                    recommendation: 'Keep skin moisturized, avoid triggers, manage stress, protect skin from injury. See a dermatologist for proper diagnosis and treatment.',
+                    severity: 'medium',
+                    medications: ['Topical corticosteroids', 'Vitamin D analogues', 'Retinoids', 'Methotrexate', 'Biologic medications', 'Phototherapy']
+                },
+                'ringworm': {
+                    info: 'Ringworm (tinea corporis) is a fungal skin infection that causes circular, red, itchy patches on the body, not caused by actual worms.',
+                    causes: ['Trichophyton fungi', 'Dermatophytes', 'Direct contact with infected person/animal', 'Contaminated objects', 'Warm, humid environments', 'Weakened immune system'],
+                    recommendation: 'Keep skin clean and dry, avoid sharing personal items, use antifungal treatments. See doctor if rash spreads or doesn\'t improve.',
+                    severity: 'low',
+                    medications: ['Clotrimazole', 'Miconazole', 'Terbinafine', 'Ketoconazole', 'Antifungal creams', 'Oral antifungals (severe cases)']
+                },
+                'athlete foot': {
+                    info: 'Athlete\'s foot (tinea pedis) is a fungal infection of the feet causing itching, burning, and cracked skin, commonly affecting the spaces between toes.',
+                    causes: ['Trichophyton fungi', 'Dermatophytes', 'Warm, moist environments', 'Public showers/pools', 'Tight shoes', 'Sweaty feet', 'Sharing towels'],
+                    recommendation: 'Keep feet dry, wear breathable shoes, use antifungal treatments. See doctor if symptoms persist or worsen after 2 weeks of treatment.',
+                    severity: 'low',
+                    medications: ['Clotrimazole', 'Miconazole', 'Terbinafine', 'Tolnaftate', 'Ketoconazole', 'Antifungal powders']
+                },
+                'vitiligo': {
+                    info: 'Vitiligo is a skin condition that causes loss of skin color in patches due to the destruction of melanocytes, the cells that produce skin pigment.',
+                    causes: ['Autoimmune disorder', 'Genetic factors', 'Environmental triggers', 'Stress', 'Sunburn', 'Chemical exposure', 'Unknown triggers'],
+                    recommendation: 'Protect skin from sun exposure, use sunscreen, consider cosmetic cover-ups. See a dermatologist for treatment options and monitoring.',
+                    severity: 'low',
+                    medications: ['Topical corticosteroids', 'Calcineurin inhibitors', 'Psoralen plus UVA (PUVA)', 'Narrowband UVB', 'Depigmentation therapy', 'Surgical treatments']
+                },
+                'hives': {
+                    info: 'Hives (urticaria) are raised, itchy welts on the skin that can appear anywhere on the body and vary in size and shape.',
+                    causes: ['Allergic reactions', 'Food allergies', 'Medications', 'Insect stings', 'Stress', 'Heat/cold exposure', 'Pressure on skin', 'Infections'],
+                    recommendation: 'Avoid known triggers, apply cool compresses, take antihistamines. Seek immediate medical attention if hives are accompanied by difficulty breathing.',
+                    severity: 'medium',
+                    medications: ['Antihistamines', 'Corticosteroids', 'Epinephrine (severe reactions)', 'H2 blockers', 'Leukotriene inhibitors', 'Immunosuppressants']
+                },
+                'shingles': {
+                    info: 'Shingles (herpes zoster) is a viral infection that causes a painful rash with blisters, typically appearing on one side of the body.',
+                    causes: ['Varicella-zoster virus reactivation', 'Previous chickenpox infection', 'Weakened immune system', 'Aging', 'Stress', 'Certain medications', 'Cancer treatment'],
+                    recommendation: 'Seek medical attention immediately, especially if rash is near eyes. Rest, avoid contact with others, keep rash clean and covered.',
+                    severity: 'high',
+                    medications: ['Antiviral medications (acyclovir, valacyclovir)', 'Pain relievers', 'Topical treatments', 'Shingles vaccine (prevention)', 'Nerve pain medications']
+                },
+                'rosacea': {
+                    info: 'Rosacea is a chronic skin condition that causes facial redness, visible blood vessels, and sometimes small, red, pus-filled bumps.',
+                    causes: ['Genetic predisposition', 'Environmental triggers', 'Sun exposure', 'Hot beverages', 'Spicy foods', 'Alcohol', 'Stress', 'Certain medications'],
+                    recommendation: 'Identify and avoid triggers, use gentle skincare products, protect from sun, manage stress. See a dermatologist for proper treatment.',
+                    severity: 'low',
+                    medications: ['Topical metronidazole', 'Azelaic acid', 'Ivermectin', 'Oral antibiotics', 'Laser therapy', 'Topical brimonidine']
+                },
+                'scabies': {
+                    info: 'Scabies is a contagious skin condition caused by tiny mites that burrow into the skin, causing intense itching and a pimple-like rash.',
+                    causes: ['Sarcoptes scabiei mites', 'Direct skin-to-skin contact', 'Sexual contact', 'Sharing bedding/clothing', 'Crowded living conditions', 'Close contact with infected person'],
+                    recommendation: 'Seek immediate medical attention. All household members and close contacts need treatment. Wash all clothing and bedding in hot water.',
+                    severity: 'medium',
+                    medications: ['Permethrin cream', 'Ivermectin', 'Lindane lotion', 'Crotamiton', 'Antihistamines', 'All contacts must be treated']
+                }
+            },
+            nonInfectiousDiseases: {
+                'diabetes': {
+                    info: 'Diabetes is a chronic condition that affects how your body processes blood sugar (glucose), leading to high blood sugar levels.',
+                    causes: ['Type 1: Autoimmune destruction of insulin-producing cells', 'Type 2: Insulin resistance and reduced insulin production', 'Genetic factors', 'Obesity', 'Sedentary lifestyle', 'Poor diet', 'Age'],
+                    recommendation: 'Monitor blood sugar regularly, maintain a healthy diet, exercise regularly, take prescribed medications. See an endocrinologist for proper management.',
+                    severity: 'high',
+                    medications: ['Insulin', 'Metformin', 'Sulfonylureas', 'DPP-4 inhibitors', 'GLP-1 receptor agonists', 'SGLT2 inhibitors']
+                },
+                'hypertension': {
+                    info: 'Hypertension (high blood pressure) is a condition where the force of blood against artery walls is consistently too high.',
+                    causes: ['Age', 'Family history', 'Obesity', 'Sedentary lifestyle', 'High salt intake', 'Stress', 'Smoking', 'Excessive alcohol', 'Chronic kidney disease'],
+                    recommendation: 'Regular blood pressure monitoring, low-sodium diet, regular exercise, weight management, stress reduction. See a cardiologist regularly.',
+                    severity: 'high',
+                    medications: ['ACE inhibitors', 'Beta-blockers', 'Diuretics', 'Calcium channel blockers', 'ARBs', 'Aldosterone antagonists']
+                },
+                'asthma': {
+                    info: 'Asthma is a chronic respiratory condition causing airway inflammation and narrowing, leading to breathing difficulties, wheezing, and coughing.',
+                    causes: ['Allergens (pollen, dust mites, pet dander)', 'Respiratory infections', 'Exercise', 'Cold air', 'Stress', 'Air pollution', 'Genetic factors', 'Occupational triggers'],
+                    recommendation: 'Avoid triggers, use prescribed inhalers, have an action plan, carry rescue medication. See a pulmonologist for management.',
+                    severity: 'medium',
+                    medications: ['Bronchodilators', 'Inhaled corticosteroids', 'Long-acting beta-agonists', 'Leukotriene modifiers', 'Theophylline', 'Biologic medications']
+                },
+                'arthritis': {
+                    info: 'Arthritis is inflammation of one or more joints, causing pain, stiffness, and swelling. Includes osteoarthritis and rheumatoid arthritis.',
+                    causes: ['Osteoarthritis: Wear and tear, aging, joint injury', 'Rheumatoid arthritis: Autoimmune disorder', 'Genetic factors', 'Obesity', 'Joint injuries', 'Infections', 'Metabolic disorders'],
+                    recommendation: 'Maintain healthy weight, exercise regularly, use joint protection techniques, apply heat/cold therapy. See a rheumatologist for specialized care.',
+                    severity: 'medium',
+                    medications: ['NSAIDs', 'Corticosteroids', 'DMARDs', 'Biologic medications', 'Pain relievers', 'Joint injections']
+                },
+                'heart disease': {
+                    info: 'Heart disease (coronary artery disease) occurs when the coronary arteries become narrowed or blocked, reducing blood flow to the heart.',
+                    causes: ['Atherosclerosis', 'High cholesterol', 'High blood pressure', 'Smoking', 'Diabetes', 'Obesity', 'Sedentary lifestyle', 'Family history', 'Age'],
+                    recommendation: 'Lifestyle changes: quit smoking, exercise regularly, eat heart-healthy diet, manage stress. Regular cardiologist visits and monitoring.',
+                    severity: 'high',
+                    medications: ['Statins', 'ACE inhibitors', 'Beta-blockers', 'Aspirin', 'Nitroglycerin', 'Antiplatelet drugs']
+                },
+                'stroke': {
+                    info: 'Stroke occurs when blood flow to part of the brain is interrupted, causing brain cells to die. Can be ischemic (blocked artery) or hemorrhagic (bleeding).',
+                    causes: ['Ischemic: Blood clot blocking artery', 'Hemorrhagic: Ruptured blood vessel', 'High blood pressure', 'Atrial fibrillation', 'Atherosclerosis', 'Diabetes', 'Smoking', 'Obesity'],
+                    recommendation: 'Seek immediate emergency medical attention. Time is critical. Prevention through managing risk factors and regular medical checkups.',
+                    severity: 'high',
+                    medications: ['tPA (tissue plasminogen activator)', 'Antiplatelet drugs', 'Anticoagulants', 'Blood pressure medications', 'Statins', 'Rehabilitation therapy']
+                },
+                'cancer': {
+                    info: 'Cancer is a group of diseases characterized by uncontrolled cell growth that can invade and destroy normal body tissue.',
+                    causes: ['Genetic mutations', 'Environmental factors', 'Lifestyle factors', 'Infections', 'Radiation exposure', 'Chemical exposure', 'Age', 'Family history'],
+                    recommendation: 'Early detection through regular screenings, healthy lifestyle, avoid known carcinogens. Seek immediate medical attention for concerning symptoms.',
+                    severity: 'high',
+                    medications: ['Chemotherapy', 'Radiation therapy', 'Targeted therapy', 'Immunotherapy', 'Hormone therapy', 'Surgery']
+                },
+                'chronic kidney disease': {
+                    info: 'Chronic kidney disease is the gradual loss of kidney function over time, affecting the kidneys\' ability to filter waste and excess fluids.',
+                    causes: ['Diabetes', 'High blood pressure', 'Glomerulonephritis', 'Polycystic kidney disease', 'Recurrent kidney infections', 'Autoimmune diseases', 'Aging'],
+                    recommendation: 'Manage underlying conditions, follow kidney-friendly diet, limit protein and sodium, regular monitoring. See a nephrologist for specialized care.',
+                    severity: 'high',
+                    medications: ['ACE inhibitors', 'ARBs', 'Diuretics', 'Phosphate binders', 'Erythropoietin', 'Dialysis (end-stage)']
+                },
+                'alzheimer disease': {
+                    info: 'Alzheimer\'s disease is a progressive brain disorder that causes memory loss, cognitive decline, and behavioral changes.',
+                    causes: ['Genetic factors', 'Age', 'Family history', 'Head injuries', 'Cardiovascular disease', 'Diabetes', 'Lifestyle factors', 'Environmental factors'],
+                    recommendation: 'Early diagnosis important, maintain social connections, engage in mental activities, regular exercise. See a neurologist for proper evaluation.',
+                    severity: 'high',
+                    medications: ['Cholinesterase inhibitors', 'Memantine', 'Antidepressants', 'Anxiolytics', 'Antipsychotics', 'Supportive care']
+                },
+                'osteoporosis': {
+                    info: 'Osteoporosis is a condition where bones become weak and brittle, increasing the risk of fractures, especially in the hip, spine, and wrist.',
+                    causes: ['Aging', 'Menopause', 'Low calcium intake', 'Vitamin D deficiency', 'Sedentary lifestyle', 'Smoking', 'Excessive alcohol', 'Certain medications', 'Family history'],
+                    recommendation: 'Adequate calcium and vitamin D intake, weight-bearing exercise, fall prevention, avoid smoking and excessive alcohol. Regular bone density testing.',
+                    severity: 'medium',
+                    medications: ['Bisphosphonates', 'Calcium supplements', 'Vitamin D', 'Hormone therapy', 'RANK ligand inhibitors', 'Parathyroid hormone']
+                }
+            },
+            hereditaryDiseases: {
+                'sickle cell anemia': {
+                    info: 'Sickle cell anemia is a genetic blood disorder where red blood cells become sickle-shaped, causing pain, anemia, and organ damage.',
+                    causes: ['Autosomal recessive inheritance', 'Mutation in HBB gene', 'Both parents must carry the gene', 'More common in people of African, Mediterranean, and Middle Eastern descent'],
+                    recommendation: 'Regular medical monitoring, pain management, infection prevention, genetic counseling. See a hematologist for specialized care.',
+                    severity: 'high',
+                    medications: ['Hydroxyurea', 'Pain medications', 'Folic acid', 'Blood transfusions', 'Penicillin prophylaxis', 'Gene therapy (experimental)']
+                },
+                'cystic fibrosis': {
+                    info: 'Cystic fibrosis is a genetic disorder that affects the lungs, pancreas, and other organs, causing thick, sticky mucus buildup.',
+                    causes: ['Autosomal recessive inheritance', 'Mutation in CFTR gene', 'Both parents must carry the gene', 'Most common in people of European descent'],
+                    recommendation: 'Regular medical care, airway clearance techniques, nutritional support, infection prevention. See a pulmonologist and gastroenterologist.',
+                    severity: 'high',
+                    medications: ['CFTR modulators', 'Bronchodilators', 'Mucolytics', 'Antibiotics', 'Pancreatic enzymes', 'Vitamins']
+                },
+                'hemophilia': {
+                    info: 'Hemophilia is a genetic bleeding disorder where blood doesn\'t clot properly, leading to excessive bleeding and bruising.',
+                    causes: ['X-linked recessive inheritance', 'Mutation in F8 or F9 genes', 'Primarily affects males', 'Females can be carriers'],
+                    recommendation: 'Avoid activities that could cause bleeding, regular factor replacement, immediate treatment for injuries. See a hematologist for management.',
+                    severity: 'high',
+                    medications: ['Factor VIII or IX replacement', 'Desmopressin', 'Antifibrinolytic agents', 'Gene therapy', 'Pain management', 'Physical therapy']
+                },
+                'huntington disease': {
+                    info: 'Huntington\'s disease is a progressive brain disorder that causes uncontrolled movements, emotional problems, and loss of thinking ability.',
+                    causes: ['Autosomal dominant inheritance', 'Mutation in HTT gene', 'One parent with the disease', 'Trinucleotide repeat expansion'],
+                    recommendation: 'Genetic counseling, supportive care, physical therapy, occupational therapy. See a neurologist and genetic counselor.',
+                    severity: 'high',
+                    medications: ['Symptomatic treatments', 'Antidepressants', 'Antipsychotics', 'Mood stabilizers', 'Physical therapy', 'Speech therapy']
+                },
+                'thalassemia': {
+                    info: 'Thalassemia is a genetic blood disorder that affects the production of hemoglobin, leading to anemia and other complications.',
+                    causes: ['Autosomal recessive inheritance', 'Mutation in alpha or beta globin genes', 'Both parents must carry the gene', 'More common in Mediterranean, Asian, and African populations'],
+                    recommendation: 'Regular blood transfusions, iron chelation therapy, folic acid supplementation. See a hematologist for specialized care.',
+                    severity: 'high',
+                    medications: ['Blood transfusions', 'Iron chelators', 'Folic acid', 'Bone marrow transplant', 'Gene therapy (experimental)', 'Supportive care']
+                },
+                'duchenne muscular dystrophy': {
+                    info: 'Duchenne muscular dystrophy is a genetic muscle disorder that causes progressive muscle weakness and wasting, primarily affecting boys.',
+                    causes: ['X-linked recessive inheritance', 'Mutation in DMD gene', 'Primarily affects males', 'Females can be carriers'],
+                    recommendation: 'Physical therapy, respiratory support, mobility aids, regular monitoring. See a neurologist and physical therapist.',
+                    severity: 'high',
+                    medications: ['Corticosteroids', 'ACE inhibitors', 'Beta-blockers', 'Calcium supplements', 'Vitamin D', 'Gene therapy (experimental)']
+                },
+                'down syndrome': {
+                    info: 'Down syndrome is a genetic condition caused by an extra copy of chromosome 21, leading to developmental delays and physical characteristics.',
+                    causes: ['Trisomy 21 (extra chromosome 21)', 'Advanced maternal age', 'Random chromosomal error', 'Rarely inherited from parents'],
+                    recommendation: 'Early intervention services, regular medical monitoring, educational support, family support. See a geneticist and developmental pediatrician.',
+                    severity: 'medium',
+                    medications: ['Symptomatic treatments', 'Thyroid hormone', 'Hearing aids', 'Vision correction', 'Physical therapy', 'Speech therapy']
+                },
+                'tay sachs disease': {
+                    info: 'Tay-Sachs disease is a fatal genetic disorder that destroys nerve cells in the brain and spinal cord, primarily affecting infants.',
+                    causes: ['Autosomal recessive inheritance', 'Mutation in HEXA gene', 'Both parents must carry the gene', 'More common in Ashkenazi Jewish population'],
+                    recommendation: 'Genetic counseling, supportive care, family support. See a geneticist and neurologist for specialized care.',
+                    severity: 'high',
+                    medications: ['Symptomatic treatments', 'Seizure medications', 'Feeding support', 'Respiratory support', 'Palliative care', 'Gene therapy (experimental)']
+                },
+                'marfan syndrome': {
+                    info: 'Marfan syndrome is a genetic disorder that affects connective tissue, causing problems with the heart, blood vessels, eyes, and skeleton.',
+                    causes: ['Autosomal dominant inheritance', 'Mutation in FBN1 gene', 'One parent with the disease', 'Connective tissue disorder'],
+                    recommendation: 'Regular cardiac monitoring, avoid contact sports, eye exams, genetic counseling. See a cardiologist and geneticist.',
+                    severity: 'high',
+                    medications: ['Beta-blockers', 'ACE inhibitors', 'Surgery (if needed)', 'Eye treatments', 'Pain management', 'Regular monitoring']
+                },
+                'polycystic kidney disease': {
+                    info: 'Polycystic kidney disease (PKD) is a genetic disorder where clusters of cysts develop in the kidneys, causing them to enlarge and lose function.',
+                    causes: ['Autosomal dominant or recessive inheritance', 'Mutation in PKD1 or PKD2 genes', 'Family history', 'Cyst formation in kidneys'],
+                    recommendation: 'Regular monitoring, blood pressure control, kidney function tests, genetic counseling. See a nephrologist for specialized care.',
+                    severity: 'high',
+                    medications: ['ACE inhibitors', 'ARBs', 'Diuretics', 'Pain management', 'Dialysis (if needed)', 'Kidney transplant']
+                }
+            },
+            diseases: {
+                'diabetes': {
+                    info: 'Diabetes is a chronic condition that affects how your body processes blood sugar (glucose).',
+                    causes: ['Type 1: Autoimmune destruction of insulin-producing cells', 'Type 2: Insulin resistance and reduced insulin production', 'Genetic factors', 'Obesity', 'Sedentary lifestyle', 'Poor diet'],
+                    recommendation: 'Monitor blood sugar regularly, maintain a healthy diet, exercise regularly, and take prescribed medications. See an endocrinologist for proper management.',
+                    severity: 'high'
+                },
+                'hypertension': {
+                    info: 'High blood pressure is a common condition where the force of blood against artery walls is too high.',
+                    causes: ['Age', 'Family history', 'Obesity', 'Sedentary lifestyle', 'High salt intake', 'Stress', 'Smoking', 'Excessive alcohol'],
+                    recommendation: 'Regular blood pressure monitoring, low-sodium diet, regular exercise, weight management, and prescribed medications. See a cardiologist regularly.',
+                    severity: 'high'
+                },
+                'asthma': {
+                    info: 'Asthma is a respiratory condition causing airway inflammation and breathing difficulties.',
+                    causes: ['Allergens (pollen, dust mites, pet dander)', 'Respiratory infections', 'Exercise', 'Cold air', 'Stress', 'Air pollution', 'Genetic factors'],
+                    recommendation: 'Avoid triggers, use prescribed inhalers, have an action plan, and carry rescue medication. See a pulmonologist for management.',
+                    severity: 'medium'
+                },
+                'pneumonia': {
+                    info: 'Pneumonia is an infection that inflames air sacs in one or both lungs, which may fill with fluid.',
+                    causes: ['Bacterial infections', 'Viral infections', 'Fungal infections', 'Aspiration', 'Weakened immune system', 'Smoking'],
+                    recommendation: 'Rest, stay hydrated, take prescribed antibiotics, and monitor symptoms. Seek immediate medical attention if breathing becomes difficult.',
+                    severity: 'high'
+                },
+                'malaria': {
+                    info: 'Malaria is a life-threatening disease caused by parasites transmitted through mosquito bites.',
+                    causes: ['Plasmodium parasites', 'Mosquito bites', 'Travel to endemic areas', 'Blood transfusions', 'Shared needles'],
+                    recommendation: 'Immediate medical treatment is essential. Use mosquito nets, repellents, and prophylactic medications when traveling to endemic areas.',
+                    severity: 'high'
+                },
+                'dengue': {
+                    info: 'Dengue is a viral infection transmitted by mosquitoes, causing flu-like symptoms and potentially severe complications.',
+                    causes: ['Dengue virus', 'Mosquito bites (Aedes species)', 'Travel to tropical areas', 'Urban environments with standing water'],
+                    recommendation: 'Rest, stay hydrated, manage fever with acetaminophen (avoid aspirin), and seek medical care immediately if warning signs appear.',
+                    severity: 'high'
+                },
+                'tuberculosis': {
+                    info: 'Tuberculosis (TB) is a bacterial infection that primarily affects the lungs but can affect other parts of the body.',
+                    causes: ['Mycobacterium tuberculosis bacteria', 'Close contact with infected individuals', 'Weakened immune system', 'HIV infection', 'Malnutrition'],
+                    recommendation: 'Complete the full course of prescribed antibiotics, maintain good nutrition, and follow infection control measures. Regular medical monitoring is essential.',
+                    severity: 'high'
+                },
+                'anemia': {
+                    info: 'Anemia occurs when you have a lower than normal number of red blood cells or hemoglobin.',
+                    causes: ['Iron deficiency', 'Vitamin B12 deficiency', 'Folate deficiency', 'Chronic diseases', 'Blood loss', 'Genetic conditions'],
+                    recommendation: 'Eat iron-rich foods, take prescribed supplements, and address underlying causes. See a hematologist for proper diagnosis and treatment.',
+                    severity: 'medium'
+                },
+                'migraine': {
+                    info: 'Migraine is a neurological condition characterized by severe, recurring headaches often accompanied by other symptoms.',
+                    causes: ['Genetic factors', 'Hormonal changes', 'Stress', 'Certain foods', 'Sleep disturbances', 'Environmental triggers', 'Weather changes'],
+                    recommendation: 'Identify and avoid triggers, maintain regular sleep schedule, consider preventive medications, and use acute treatments as prescribed.',
+                    severity: 'medium'
+                },
+                'arthritis': {
+                    info: 'Arthritis is inflammation of one or more joints, causing pain and stiffness that typically worsen with age.',
+                    causes: ['Osteoarthritis (wear and tear)', 'Rheumatoid arthritis (autoimmune)', 'Gout', 'Infections', 'Injuries', 'Obesity', 'Genetic factors'],
+                    recommendation: 'Maintain healthy weight, exercise regularly, use joint protection techniques, and take prescribed medications. See a rheumatologist for specialized care.',
+                    severity: 'medium'
+                },
+                'gastritis': {
+                    info: 'Gastritis is inflammation of the stomach lining, which can be acute or chronic.',
+                    causes: ['H. pylori infection', 'Excessive alcohol use', 'NSAID medications', 'Stress', 'Autoimmune conditions', 'Bile reflux'],
+                    recommendation: 'Avoid irritants like alcohol and NSAIDs, eat smaller meals, manage stress, and take prescribed medications. See a gastroenterologist if symptoms persist.',
+                    severity: 'medium'
+                },
+                'depression': {
+                    info: 'Depression is a mental health condition characterized by persistent sadness, loss of interest, and other symptoms affecting daily life.',
+                    causes: ['Biological factors', 'Brain chemistry', 'Hormonal changes', 'Life events', 'Chronic illness', 'Substance abuse', 'Family history'],
+                    recommendation: 'Seek professional help, consider therapy and/or medication, maintain social connections, exercise regularly, and practice self-care.',
+                    severity: 'high'
+                },
+                'anxiety': {
+                    info: 'Anxiety is a mental health condition involving excessive worry, fear, or nervousness that can interfere with daily activities.',
+                    causes: ['Genetic factors', 'Brain chemistry', 'Life stress', 'Trauma', 'Medical conditions', 'Substance use', 'Personality traits'],
+                    recommendation: 'Practice relaxation techniques, consider therapy, maintain regular sleep, limit caffeine, and seek professional help if symptoms are severe.',
+                    severity: 'medium'
+                },
+                'obesity': {
+                    info: 'Obesity is a complex condition involving excessive body fat that increases the risk of other health problems.',
+                    causes: ['Caloric imbalance', 'Sedentary lifestyle', 'Genetic factors', 'Medical conditions', 'Medications', 'Psychological factors', 'Socioeconomic factors'],
+                    recommendation: 'Adopt a balanced diet, increase physical activity, consider professional weight management programs, and address underlying causes with medical supervision.',
+                    severity: 'high'
+                }
+            },
+            conditions: {
+                'cold': {
+                    info: 'Common cold is a viral infection causing runny nose, sneezing, and mild fever.',
+                    causes: ['Rhinoviruses', 'Coronaviruses', 'Adenoviruses', 'Respiratory syncytial virus', 'Weakened immune system'],
+                    recommendation: 'Rest, fluids, and over-the-counter medications can help. See a doctor if symptoms worsen or persist.',
+                    severity: 'low'
+                },
+                'flu': {
+                    info: 'Influenza is a viral infection with fever, body aches, and fatigue.',
+                    causes: ['Influenza viruses (A, B, C)', 'Close contact with infected individuals', 'Weakened immune system', 'Seasonal outbreaks'],
+                    recommendation: 'Antiviral medications may be prescribed if caught early. Rest, fluids, and fever management are important.',
+                    severity: 'medium'
+                }
+            },
+            medications: {
+                'paracetamol': 'Also known as acetaminophen, used for pain relief and fever reduction. Generally safe but can cause liver damage in high doses.',
+                'ibuprofen': 'NSAID used for pain and inflammation. Can cause stomach upset and should be taken with food.',
+                'amoxicillin': 'Antibiotic used to treat bacterial infections. Complete the full course as prescribed to prevent antibiotic resistance.',
+                'aspirin': 'Used for pain relief, reducing inflammation, and preventing blood clots. Common side effects include stomach irritation.',
+                'acetaminophen': 'Pain reliever and fever reducer. Generally safe but can cause liver damage in high doses.',
+                'metformin': 'Common diabetes medication that helps control blood sugar levels. May cause digestive side effects initially.',
+                'lisinopril': 'ACE inhibitor used to treat high blood pressure and heart failure. May cause dry cough as a side effect.'
+            }
+        };
+
+        // Emergency terms that require immediate attention
+        const emergencyTerms = [
+            'chest pain', 'heart attack', 'stroke', 'severe bleeding', 'unconscious',
+            'difficulty breathing', 'severe allergic reaction', 'overdose', 'suicide',
+            'severe headache', 'vision loss', 'severe abdominal pain', 'high fever',
+            'can\'t breathe', 'choking', 'severe pain', 'emergency'
+        ];
+
+        // API endpoints
+        const API_ENDPOINTS = {
+            rxnorm: 'https://rxnav.nlm.nih.gov/REST/rxcui.json',
+            dailymed: 'https://dailymed.nlm.nih.gov/dailymed/services/v2/druginfo.json',
+            openfda: 'https://api.fda.gov/drug/label.json',
+            myhealthfinder: 'https://healthfinder.gov/api/v2/topicsearch.json',
+            infermedica: 'https://api.infermedica.com/v3/symptoms'
+        };
+
+        // Infermedica API configuration
+        const INFERMEDICA_CONFIG = {
+            appId: 'your_app_id', // Replace with actual app ID
+            appKey: 'your_app_key', // Replace with actual app key
+            baseUrl: 'https://api.infermedica.com/v3'
+        };
+
+        // DOM elements
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const sendButton = document.getElementById('sendButton');
+
+        // Initialize chatbot
+        document.addEventListener('DOMContentLoaded', function() {
+            sendButton.addEventListener('click', sendMessage);
+            chatInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    sendMessage();
+                }
+            });
+        });
+
+        // Send message function
+        async function sendMessage() {
+            const userInput = chatInput.value.trim();
+            if (!userInput) return;
+
+            // Add user message to chat
+            addMessage(userInput, 'user');
+            chatInput.value = '';
+
+            // Show loading indicator
+            const loadingId = addMessage('<div class="loading"></div> Thinking...', 'bot');
+
+            try {
+                // Check for emergency terms
+                if (checkEmergency(userInput)) {
+                    removeMessage(loadingId);
+                    addMessage(createEmergencyAlert(), 'bot');
+                    return;
+                }
+
+                // Process the query
+                const response = await processQuery(userInput);
+                removeMessage(loadingId);
+                addMessage(response, 'bot');
+            } catch (error) {
+                removeMessage(loadingId);
+                addMessage('I apologize, but I encountered an error while processing your request. Please try again or consult a healthcare professional.', 'bot');
+                console.error('Error:', error);
+            }
+        }
+
+        // Add message to chat
+        function addMessage(content, sender) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            messageDiv.innerHTML = content;
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            return messageDiv;
+        }
+
+        // Remove message from chat (for loading indicator)
+        function removeMessage(messageElement) {
+            if (messageElement && messageElement.parentNode) {
+                messageElement.parentNode.removeChild(messageElement);
+            }
+        }
+
+        // Check for emergency terms
+        function checkEmergency(input) {
+            const lowerInput = input.toLowerCase();
+            return emergencyTerms.some(term => lowerInput.includes(term));
+        }
+
+        // Create emergency alert
+        function createEmergencyAlert() {
+            return `
+                <div class="emergency-alert">
+                    🚨 EMERGENCY ALERT 🚨
+                    <br><br>
+                    Your message contains terms that may indicate a medical emergency.
+                    <br><br>
+                    <strong>Please call emergency services (911) immediately or go to the nearest emergency room.</strong>
+                    <br><br>
+                    This chatbot is not a substitute for emergency medical care.
+                </div>
+            `;
+        }
+
+        // Process user query
+        async function processQuery(input) {
+            const lowerInput = input.toLowerCase();
+
+            // Step 1: Check for emergency terms
+            if (checkEmergency(lowerInput)) {
+                return createEmergencyAlert();
+            }
+
+            // Step 2: Check local knowledge base
+            const localResponse = checkLocalKnowledge(lowerInput);
+            if (localResponse) {
+                return localResponse;
+            }
+
+            // Step 3: Check if it's a drug query
+            if (isDrugQuery(lowerInput)) {
+                return await handleDrugQuery(input);
+            }
+
+            // Step 4: Check if it's a symptom not in local knowledge
+            if (isSymptomQuery(lowerInput)) {
+                return await handleSymptomQuery(input);
+            }
+
+            // Step 5: Fallback to general health information
+            return await fetchGeneralHealthInfo(input);
+        }
+
+        // Check if query is about drugs/medications
+        function isDrugQuery(input) {
+            const drugKeywords = ['drug', 'medication', 'medicine', 'pill', 'tablet', 'capsule', 'dosage', 'side effects', 'interactions'];
+            return drugKeywords.some(keyword => input.includes(keyword));
+        }
+
+        // Check if query is about symptoms not in local knowledge
+        function isSymptomQuery(input) {
+            const symptomKeywords = ['pain', 'ache', 'hurt', 'sore', 'tender', 'uncomfortable', 'discomfort'];
+            const bodyParts = ['back', 'stomach', 'leg', 'arm', 'shoulder', 'knee', 'neck', 'muscle', 'joint'];
+            
+            return symptomKeywords.some(keyword => input.includes(keyword)) && 
+                   bodyParts.some(part => input.includes(part));
+        }
+
+        // Handle symptom queries using Infermedica API
+        async function handleSymptomQuery(input) {
+            try {
+                // For demo purposes, we'll simulate Infermedica API response
+                // In production, you would need actual API credentials
+                const symptomInfo = await getSymptomAnalysis(input);
+                return formatSymptomResponse(input, symptomInfo);
+            } catch (error) {
+                console.error('Symptom query error:', error);
+                return `I understand you're experiencing ${input}. While I can't provide a specific diagnosis, here are some general guidelines:
+
+                <div class="warning">
+                    <strong>General Advice:</strong>
+                    <ul>
+                        <li>Rest and avoid activities that worsen the pain</li>
+                        <li>Apply ice for acute pain or heat for muscle stiffness</li>
+                        <li>Consider over-the-counter pain relievers like ibuprofen or acetaminophen</li>
+                        <li>If pain persists for more than a few days or worsens, consult a healthcare provider</li>
+                    </ul>
+                </div>
+                
+                <em>This is general information only. Please consult a healthcare professional for proper diagnosis and treatment.</em>`;
+            }
+        }
+
+        // Get symptom analysis (simulated for demo)
+        async function getSymptomAnalysis(input) {
+            // Simulate API delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Mock response based on common symptoms
+            const lowerInput = input.toLowerCase();
+            
+            if (lowerInput.includes('back pain')) {
+                return {
+                    possibleCauses: [
+                        'Muscle strain or sprain',
+                        'Poor posture',
+                        'Herniated disc',
+                        'Arthritis',
+                        'Kidney problems'
+                    ],
+                    triageLevel: 'moderate',
+                    recommendations: [
+                        'Rest and avoid heavy lifting',
+                        'Apply ice for 20 minutes every few hours',
+                        'Consider gentle stretching exercises',
+                        'See a doctor if pain persists or radiates to legs'
+                    ]
+                };
+            } else if (lowerInput.includes('stomach pain')) {
+                return {
+                    possibleCauses: [
+                        'Indigestion or gas',
+                        'Food poisoning',
+                        'Irritable bowel syndrome',
+                        'Appendicitis',
+                        'Gastritis'
+                    ],
+                    triageLevel: 'moderate',
+                    recommendations: [
+                        'Avoid solid foods for a few hours',
+                        'Drink clear fluids',
+                        'Apply heat to the abdomen',
+                        'Seek medical attention if pain is severe or persistent'
+                    ]
+                };
+            } else {
+                return {
+                    possibleCauses: ['Various possible causes'],
+                    triageLevel: 'low',
+                    recommendations: ['Consult a healthcare provider for proper evaluation']
+                };
+            }
+        }
+
+        // Format symptom response
+        function formatSymptomResponse(input, symptomInfo) {
+            let response = `<div class="drug-info">
+                <h3>Symptom Analysis: ${input}</h3>
+                <p><strong>Possible Causes:</strong></p>
+                <ul>`;
+            
+            symptomInfo.possibleCauses.forEach(cause => {
+                response += `<li>${cause}</li>`;
+            });
+            
+            response += `</ul>
+                <p><strong>Recommendations:</strong></p>
+                <ul>`;
+            
+            symptomInfo.recommendations.forEach(rec => {
+                response += `<li>${rec}</li>`;
+            });
+            
+            response += `</ul>
+                <div class="warning">
+                    <strong>Important:</strong> This analysis is for educational purposes only and should not replace professional medical advice. 
+                    If your symptoms are severe, persistent, or concerning, please consult a healthcare provider immediately.
+                </div>
+            </div>`;
+            
+            return response;
+        }
+
+        // Handle drug-related queries
+        async function handleDrugQuery(input) {
+            try {
+                // Extract drug name from input
+                const drugName = extractDrugName(input);
+                if (!drugName) {
+                    return 'Please specify the name of the drug or medication you\'re asking about.';
+                }
+
+                // Get drug information from multiple APIs
+                const drugInfo = await getDrugInformation(drugName);
+                return formatDrugResponse(drugName, drugInfo);
+            } catch (error) {
+                console.error('Drug query error:', error);
+                return 'I couldn\'t retrieve information about that medication. Please consult your pharmacist or healthcare provider for accurate drug information.';
+            }
+        }
+
+        // Extract drug name from input
+        function extractDrugName(input) {
+            // Simple extraction - look for words that might be drug names
+            const words = input.split(' ');
+            const drugKeywords = ['drug', 'medication', 'medicine', 'pill', 'tablet', 'capsule'];
+            
+            for (let i = 0; i < words.length; i++) {
+                if (drugKeywords.includes(words[i].toLowerCase()) && i + 1 < words.length) {
+                    return words[i + 1];
+                }
+            }
+            
+            // If no keyword found, assume the first word might be the drug name
+            return words[0];
+        }
+
+        // Get drug information from APIs
+        async function getDrugInformation(drugName) {
+            try {
+                // Get RxNorm ID
+                const rxnormResponse = await fetch(`${API_ENDPOINTS.rxnorm}?name=${encodeURIComponent(drugName)}`);
+                const rxnormData = await rxnormResponse.json();
+                
+                if (rxnormData.idGroup && rxnormData.idGroup.rxnormId) {
+                    const rxnormId = rxnormData.idGroup.rxnormId[0];
+                    
+                    // Get drug label from DailyMed
+                    const labelResponse = await fetch(`${API_ENDPOINTS.dailymed}?rxcui=${rxnormId}`);
+                    const labelData = await labelResponse.json();
+                    
+                    // Get FDA drug information
+                    const fdaResponse = await fetch(`${API_ENDPOINTS.openfda}?search=openfda.rxcui:${rxnormId}&limit=1`);
+                    const fdaData = await fdaResponse.json();
+                    
+                    return {
+                        rxnormId,
+                        label: labelData,
+                        fda: fdaData
+                    };
+                }
+                
+                return null;
+            } catch (error) {
+                console.error('API error:', error);
+                // Return basic drug info from local knowledge if API fails
+                const localDrug = medicalKnowledge.medications[drugName.toLowerCase()];
+                if (localDrug) {
+                    return {
+                        local: true,
+                        name: drugName,
+                        info: localDrug
+                    };
+                }
+                return null;
+            }
+        }
+
+        // Format drug response
+        function formatDrugResponse(drugName, drugInfo) {
+            if (!drugInfo) {
+                return `I couldn't find detailed information about ${drugName}. Please consult your pharmacist or healthcare provider for accurate drug information.`;
+            }
+
+            // Handle local drug information
+            if (drugInfo.local) {
+                return `<div class="drug-info">
+                    <h3>Drug Information: ${drugName}</h3>
+                    <p><strong>Description:</strong> ${drugInfo.info}</p>
+                    <div class="warning">
+                        <strong>Note:</strong> This information is for educational purposes only. Always consult your healthcare provider or pharmacist for medical advice.
+                    </div>
+                </div>`;
+            }
+
+            let response = `<div class="drug-info">
+                <h3>Drug Information: ${drugName}</h3>
+            `;
+
+            if (drugInfo.fda && drugInfo.fda.results && drugInfo.fda.results.length > 0) {
+                const drug = drugInfo.fda.results[0];
+                
+                if (drug.openfda && drug.openfda.generic_name) {
+                    response += `<p><strong>Generic Name:</strong> ${drug.openfda.generic_name.join(', ')}</p>`;
+                }
+                
+                if (drug.openfda && drug.openfda.brand_name) {
+                    response += `<p><strong>Brand Names:</strong> ${drug.openfda.brand_name.join(', ')}</p>`;
+                }
+                
+                if (drug.warnings) {
+                    response += `<div class="warning">
+                        <strong>Warnings:</strong> ${drug.warnings.join(' ')}
+                    </div>`;
+                }
+            }
+
+            response += `
+                <p><strong>Note:</strong> This information is for educational purposes only. Always consult your healthcare provider or pharmacist for medical advice.</p>
+            </div>`;
+
+            return response;
+        }
+
+        // Check local knowledge base
+        function checkLocalKnowledge(input) {
+            // Check everyday diseases first (most common queries)
+            for (const [disease, data] of Object.entries(medicalKnowledge.everydayDiseases)) {
+                if (input.includes(disease)) {
+                    return formatStructuredResponse('Everyday Disease', disease, data);
+                }
+            }
+
+            // Check skin diseases
+            for (const [disease, data] of Object.entries(medicalKnowledge.skinDiseases)) {
+                if (input.includes(disease)) {
+                    return formatStructuredResponse('Skin Disease', disease, data);
+                }
+            }
+
+            // Check non-infectious diseases
+            for (const [disease, data] of Object.entries(medicalKnowledge.nonInfectiousDiseases)) {
+                if (input.includes(disease)) {
+                    return formatStructuredResponse('Non-Infectious Disease', disease, data);
+                }
+            }
+
+            // Check hereditary diseases
+            for (const [disease, data] of Object.entries(medicalKnowledge.hereditaryDiseases)) {
+                if (input.includes(disease)) {
+                    return formatStructuredResponse('Hereditary Disease', disease, data);
+                }
+            }
+
+            // Check viral diseases
+            for (const [disease, data] of Object.entries(medicalKnowledge.viralDiseases)) {
+                if (input.includes(disease)) {
+                    return formatStructuredResponse('Viral Disease', disease, data);
+                }
+            }
+
+            // Check bacterial diseases
+            for (const [disease, data] of Object.entries(medicalKnowledge.bacterialDiseases)) {
+                if (input.includes(disease)) {
+                    return formatStructuredResponse('Bacterial Disease', disease, data);
+                }
+            }
+
+            // Check fungal diseases
+            for (const [disease, data] of Object.entries(medicalKnowledge.fungalDiseases)) {
+                if (input.includes(disease)) {
+                    return formatStructuredResponse('Fungal Disease', disease, data);
+                }
+            }
+
+            // Check STDs
+            for (const [disease, data] of Object.entries(medicalKnowledge.stds)) {
+                if (input.includes(disease)) {
+                    return formatStructuredResponse('Sexually Transmitted Disease', disease, data);
+                }
+            }
+
+            // Check symptoms
+            for (const [symptom, data] of Object.entries(medicalKnowledge.symptoms)) {
+                if (input.includes(symptom)) {
+                    return formatStructuredResponse('Symptom', symptom, data);
+                }
+            }
+
+            // Check diseases
+            for (const [disease, data] of Object.entries(medicalKnowledge.diseases)) {
+                if (input.includes(disease)) {
+                    return formatStructuredResponse('Disease', disease, data);
+                }
+            }
+
+            // Check conditions
+            for (const [condition, data] of Object.entries(medicalKnowledge.conditions)) {
+                if (input.includes(condition)) {
+                    return formatStructuredResponse('Condition', condition, data);
+                }
+            }
+
+            // Check medications
+            for (const [medication, info] of Object.entries(medicalKnowledge.medications)) {
+                if (input.includes(medication)) {
+                    return `<div class="drug-info">
+                        <h3>Medication: ${medication}</h3>
+                        <p><strong>Description:</strong> ${info}</p>
+                        <div class="warning">
+                            <strong>Note:</strong> This information is for educational purposes only. Please consult your healthcare provider or pharmacist for medical advice.
+                        </div>
+                    </div>`;
+                }
+            }
+
+            return null;
+        }
+
+        // Format structured response with Info, Causes, Recommendation, and Medications
+        function formatStructuredResponse(type, name, data) {
+            const severityColor = data.severity === 'high' ? '#ff4757' : data.severity === 'medium' ? '#ffa502' : '#2ed573';
+            
+            let causesList = '';
+            data.causes.forEach(cause => {
+                causesList += `<li>${cause}</li>`;
+            });
+
+            let medicationsList = '';
+            if (data.medications && data.medications.length > 0) {
+                data.medications.forEach(medication => {
+                    medicationsList += `<li>${medication}</li>`;
+                });
+            }
+            
+            return `<div class="drug-info">
+                <h3>${type}: ${name}</h3>
+                <div style="display: inline-block; background: ${severityColor}; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; margin-bottom: 10px;">
+                    Severity: ${data.severity.toUpperCase()}
+                </div>
+                
+                <p><strong>Info:</strong></p>
+                <p>${data.info}</p>
+                
+                <p><strong>Possible Causes:</strong></p>
+                <ul>${causesList}</ul>
+                
+                <p><strong>Advice:</strong></p>
+                <p>${data.recommendation}</p>
+                
+                ${medicationsList ? `
+                <p><strong>Common Medications:</strong></p>
+                <ul>${medicationsList}</ul>
+                ` : ''}
+                
+                <div class="warning">
+                    <strong>Important:</strong> This information is for educational purposes only and should not replace professional medical advice. 
+                    Please consult a healthcare professional for proper diagnosis and treatment.
+                </div>
+            </div>`;
+        }
+
+        // Fetch general health information
+        async function fetchGeneralHealthInfo(input) {
+            try {
+                const response = await fetch(`${API_ENDPOINTS.myhealthfinder}?keyword=${encodeURIComponent(input)}&limit=3`);
+                const data = await response.json();
+                
+                if (data.Result && data.Result.Resources && data.Result.Resources.Resource) {
+                    const resources = Array.isArray(data.Result.Resources.Resource) 
+                        ? data.Result.Resources.Resource 
+                        : [data.Result.Resources.Resource];
+                    
+                    let healthInfo = `<strong>Health Information:</strong><br><br>`;
+                    
+                    resources.forEach((resource, index) => {
+                        healthInfo += `<strong>${index + 1}. ${resource.Title}</strong><br>`;
+                        healthInfo += `${resource.Description}<br>`;
+                        if (resource.AccessibleVersion) {
+                            healthInfo += `<a href="${resource.AccessibleVersion}" target="_blank">Learn More</a><br><br>`;
+                        }
+                    });
+                    
+                    healthInfo += `<em>This information is for educational purposes only. Please consult a healthcare professional for medical advice.</em>`;
+                    
+                    return healthInfo;
+                }
+                
+                return `I couldn't find specific information about your query. Please try rephrasing your question or consult a healthcare professional for personalized advice.`;
+            } catch (error) {
+                console.error('Health info API error:', error);
+                return `I apologize, but I couldn't retrieve health information at the moment. Please consult a healthcare professional for medical advice.`;
+            }
+        }
+    </script>
+</body>
+</html>
