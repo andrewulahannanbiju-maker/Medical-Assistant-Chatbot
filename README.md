@@ -17,7 +17,6 @@ Key features include:
 
 Local knowledge base with common symptoms and diseases.
 
-Integration with free medical APIs like RxNorm, DailyMed, OpenFDA, and MyHealthfinder.
 
 Emergency detection to alert users when symptoms may be serious.
 
