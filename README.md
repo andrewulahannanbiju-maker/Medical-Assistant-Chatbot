@@ -26,7 +26,7 @@ This directly solves the problem by combining verified health data with a user-f
 Tech Stack
 
 Frontend: HTML, CSS, JavaScript
-Backend: None (API-driven with external medical services)
+Backend: None , Responses come from the predefined knowledge base, not from AI/ML
 
 Business Model / Use Case
 
